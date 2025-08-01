@@ -78,7 +78,7 @@ class AugmentIPCClient extends events_1.EventEmitter {
     }
     async _spawnServerProcess() {
         return new Promise((resolve, reject) => {
-            this.serverProcess = (0, child_process_1.spawn)("node", [this.serverPath], {
+            this.serverProcess = (0, child_process_1.spawn)("node", [this.serverPath, "--node-ipc"], {
                 stdio: ["pipe", "pipe", "pipe", "ipc"],
                 env: { ...process.env },
             });
