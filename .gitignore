@@ -4,6 +4,7 @@ node_modules
 # output
 out
 *.tgz
+dist/
 
 # Keep compiled action files for GitHub Actions
 !dist/main.js
