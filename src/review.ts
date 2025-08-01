@@ -14,6 +14,7 @@ interface ReviewOptions {
   repoOwner?: string;
   repoName?: string;
   commitSha?: string;
+  projectRules?: string;
 }
 
 interface StatusResponse {
@@ -371,7 +372,8 @@ function formatPrompt(
         "{PR_DESCRIPTION}",
         options.prDescription || "No description provided"
       )
-      .replace("{DIFF_CONTENT}", diffContent || "No diff content available") +
+      .replace("{DIFF_CONTENT}", diffContent || "No diff content available")
+      .replace("{PROJECT_RULES}", options.projectRules || "无项目规则文件") +
     githubInfo
   );
 }

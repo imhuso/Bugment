@@ -7,6 +7,7 @@ import * as path from "path";
 import { spawn } from "child_process";
 import { performCodeReview, ReviewOptions } from "./review";
 import { IgnoreManager } from "./ignore-manager";
+import { RuleManager } from "./rule-manager";
 
 interface ActionInputs {
   augmentAccessToken: string;
@@ -560,6 +561,11 @@ class BugmentAction {
     core.info("🤖 Performing AI code review...");
 
     const workspaceDir = this.getWorkspaceDirectory();
+
+    // 加载项目规则
+    const ruleManager = new RuleManager(workspaceDir);
+    const projectRules = await ruleManager.loadAllRules();
+
     const reviewOptions: ReviewOptions = {
       projectPath: workspaceDir,
       prTitle: this.prInfo.title,
@@ -568,9 +574,14 @@ class BugmentAction {
       repoOwner: this.prInfo.owner,
       repoName: this.prInfo.repo,
       commitSha: this.prInfo.headSha,
+      projectRules: projectRules, // 添加项目规则
     };
 
     core.info(`🔍 Analyzing project at: ${workspaceDir}`);
+    if (projectRules) {
+      core.info(`📋 Found project rules, prioritizing rule compliance checks`);
+    }
+
     const result = await performCodeReview(reviewOptions);
     core.info("✅ Code review completed");
 
