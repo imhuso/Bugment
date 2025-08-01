@@ -36,7 +36,11 @@
 - **变更文件差异**: {DIFF_CONTENT}
 - **项目规则**: {PROJECT_RULES}
 
-注意：如果输入中包含 GitHub 仓库信息，请在位置部分使用完整的 GitHub 链接格式。
+注意：
+- 如果输入中包含 GitHub 仓库信息，请在位置部分使用完整的 GitHub 链接格式
+- 对于规则引用，必须使用精确的 GitHub 行号链接格式，例如：
+  `https://github.com/owner/repo/blob/commit/.augment/rules/coding-standards.md#L15-L20`
+- 规则引用应该指向规则文件中具体违反的规则条目所在的行号
 
 ## 评审限制
 
@@ -71,7 +75,7 @@
 
 **严重程度**: 🟡 **中等**
 **描述**: <详细说明问题及其影响>
-**规则引用**: <如果违反项目规则，引用具体规则文件和内容，格式：规则文件路径 - 规则内容摘要>
+**规则引用**: <如果违反项目规则，使用 GitHub 行号引用格式：https://github.com/{repoOwner}/{repoName}/blob/{commitSha}/.augment/rules/规则文件名.md#L行号-L结束行号>
 **位置**: 文件路径#L行号 (例如: src/components/Button.tsx:#L7 或 src/utils/helper.js#L7-L10)
 **建议修改**: <具体的代码修改建议，如果适用>
 **AI修复Prompt**:
@@ -84,7 +88,7 @@
 
 **严重程度**: 🟢 **轻微**
 **描述**: <详细说明>
-**规则引用**: <如果违反项目规则，引用具体规则文件和内容，格式：规则文件路径 - 规则内容摘要>
+**规则引用**: <如果违反项目规则，使用 GitHub 行号引用格式：https://github.com/{repoOwner}/{repoName}/blob/{commitSha}/.augment/rules/规则文件名.md#L行号-L结束行号>
 **位置**: 文件路径#L行号 (例如: src/components/Button.tsx:#L7 或 src/utils/helper.js#L7-L10)
 **建议修改**: <具体的代码修改建议，如果适用>
 **AI修复Prompt**:
@@ -99,7 +103,7 @@
 
 **严重程度**: 🟢 **轻微**
 **描述**: <详细说明问题及其影响>
-**规则引用**: <如果违反项目规则，引用具体规则文件和内容，格式：规则文件路径 - 规则内容摘要>
+**规则引用**: <如果违反项目规则，使用 GitHub 行号引用格式：https://github.com/{repoOwner}/{repoName}/blob/{commitSha}/.augment/rules/规则文件名.md#L行号-L结束行号>
 **位置**: 文件路径#L行号 (例如: src/components/Button.tsx:#L7 或 src/utils/helper.js#L7-L10)
 **建议修改**: <具体的代码修改建议，如果适用>
 **AI修复Prompt**:
@@ -112,6 +116,7 @@
 
 **严重程度**: 🟢 **轻微**
 **描述**: <详细说明>
+**规则引用**: <如果违反项目规则，使用 GitHub 行号引用格式：https://github.com/{repoOwner}/{repoName}/blob/{commitSha}/.augment/rules/规则文件名.md#L行号-L结束行号>
 **位置**: 文件路径:行号 (例如: src/components/Button.tsx#L45 或 src/utils/helper.js#L12-18)
 **建议修改**: <具体的代码修改建议，如果适用>
 **AI修复Prompt**:
@@ -124,8 +129,9 @@
 
 ## 1. <S‑1 简短标题>
 
-**严重程度**: 🟢 **轻微**  
+**严重程度**: 🟢 **轻微**
 **描述**: <安全问题详细说明>
+**规则引用**: <如果违反项目规则，使用 GitHub 行号引用格式：https://github.com/{repoOwner}/{repoName}/blob/{commitSha}/.augment/rules/规则文件名.md#L行号-L结束行号>
 **位置**: 文件路径:行号 (例如: src/components/Button.tsx#L45 或 src/utils/helper.js#L12-18)
 **建议修改**: <具体的代码修改建议，如果适用>
 **AI修复Prompt**:
@@ -140,6 +146,7 @@
 
 **严重程度**: 🔴 **严重**
 **描述**: <性能问题详细说明>
+**规则引用**: <如果违反项目规则，使用 GitHub 行号引用格式：https://github.com/{repoOwner}/{repoName}/blob/{commitSha}/.augment/rules/规则文件名.md#L行号-L结束行号>
 **位置**: 文件路径:行号 (例如: src/components/Button.tsx#L45 或 src/utils/helper.js#L12-18)
 **建议修改**: <具体的代码修改建议，如果适用>
 **AI修复Prompt**:
