@@ -109,7 +109,7 @@ export class AugmentIPCClient extends EventEmitter {
       });
 
       // 进程退出监听
-      this.serverProcess.on("exit", (code, signal) => {
+      this.serverProcess.on("exit", (code, _signal) => {
         if (code !== 0 && code !== null) {
           reject(new Error(`Server process exited with code ${code}`));
         }
