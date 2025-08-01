@@ -1,0 +1,57 @@
+name: "Bugment AI Code Review"
+description: "AI-powered code review for Pull Requests using Augment"
+author: "Bugment Team"
+
+branding:
+  icon: "search"
+  color: "blue"
+
+inputs:
+  augment_access_token:
+    description: "Augment access token for authentication"
+    required: true
+  augment_tenant_url:
+    description: "Augment tenant URL for authentication"
+    required: true
+  github_token:
+    description: "GitHub token for posting comments"
+    required: true
+    default: ${{ github.token }}
+
+outputs:
+  review_result:
+    description: "The generated code review result"
+  issues_found:
+    description: "Number of issues found during review"
+  review_status:
+    description: "Review completion status: success, failed, or skipped"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.pull_request.head.sha }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        npm ci
+
+    - name: Run TypeScript action
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        npx tsx src/action.ts
+      env:
+        INPUT_AUGMENT_ACCESS_TOKEN: ${{ inputs.augment_access_token }}
+        INPUT_AUGMENT_TENANT_URL: ${{ inputs.augment_tenant_url }}
+        INPUT_GITHUB_TOKEN: ${{ inputs.github_token }}
