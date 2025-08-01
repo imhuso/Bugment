@@ -6,19 +6,7 @@ out
 *.tgz
 dist/
 
-# Keep compiled action files for GitHub Actions
-!dist/main.js
-!dist/main.js.map
-!dist/bugment-action.js
-!dist/bugment-action.js.map
-!dist/types.js
-!dist/types.js.map
-!dist/rule-manager.js
-!dist/rule-manager.js.map
-!dist/ignore-manager.js
-!dist/ignore-manager.js.map
-!dist/services/
-!dist/licenses.txt
+# Keep only essential files for GitHub Actions
 !dist/server.js
 
 # code coverage
