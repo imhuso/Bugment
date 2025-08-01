@@ -46,6 +46,7 @@ export interface AIAnalysisContext {
   prompt: string;
   projectRules: ProjectRules;
   codeChanges: CodeAnalysisResult;
+  workspaceDir: string;
   githubInfo?: {
     repoOwner: string;
     repoName: string;

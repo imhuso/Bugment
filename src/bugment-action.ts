@@ -136,6 +136,7 @@ export class BugmentAction {
         prompt: await this.loadPromptTemplate(),
         projectRules,
         codeChanges: codeAnalysis,
+        workspaceDir: this.config.workspaceDir,
         githubInfo: {
           repoOwner: this.config.prInfo.owner,
           repoName: this.config.prInfo.repo,
