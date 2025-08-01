@@ -6,8 +6,17 @@ out
 *.tgz
 
 # Keep compiled action files for GitHub Actions
-!dist/index.js
-!dist/index.js.map
+!dist/main.js
+!dist/main.js.map
+!dist/bugment-action.js
+!dist/bugment-action.js.map
+!dist/types.js
+!dist/types.js.map
+!dist/rule-manager.js
+!dist/rule-manager.js.map
+!dist/ignore-manager.js
+!dist/ignore-manager.js.map
+!dist/services/
 !dist/licenses.txt
 !dist/server.js
 
@@ -37,3 +46,4 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+.claude

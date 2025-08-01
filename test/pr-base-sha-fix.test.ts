@@ -43,7 +43,7 @@ describe('PR Base SHA Fix', () => {
     
     try {
       // Import the class after mocking
-      const { BugmentAction } = require('../src/action');
+      const { BugmentAction } = require('../src/bugment-action');
       const action = new BugmentAction();
       
       // Test the getActualBaseSha method
@@ -104,7 +104,7 @@ describe('PR Base SHA Fix', () => {
     
     try {
       // Mock the prInfo to have original base SHA
-      const { BugmentAction } = require('../src/action');
+      const { BugmentAction } = require('../src/bugment-action');
       const action = new BugmentAction();
       (action as any).prInfo = { baseSha: originalBaseSha };
       

@@ -1,15 +1,4 @@
-#!/usr/bin/env node
 import { EventEmitter } from "events";
-interface ReviewOptions {
-    projectPath: string;
-    prTitle: string;
-    prDescription: string;
-    diffPath?: string;
-    repoOwner?: string;
-    repoName?: string;
-    commitSha?: string;
-    projectRules?: string;
-}
 interface StatusResponse {
     loggedIn: boolean;
     syncPercentage?: number;
@@ -38,6 +27,5 @@ export declare class AugmentIPCClient extends EventEmitter {
     isRunning(): boolean;
     isReady(): boolean;
 }
-declare function performCodeReview(options: ReviewOptions): Promise<string>;
-export { performCodeReview, ReviewOptions };
-//# sourceMappingURL=review.d.ts.map
+export {};
+//# sourceMappingURL=augment-client.d.ts.map

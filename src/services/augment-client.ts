@@ -1,21 +1,8 @@
-#!/usr/bin/env node
-
-import * as fs from "fs";
 import { spawn, ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
 import pRetry from "p-retry";
 import pTimeout from "p-timeout";
-interface ReviewOptions {
-  projectPath: string;
-  prTitle: string;
-  prDescription: string;
-  diffPath?: string;
-  repoOwner?: string;
-  repoName?: string;
-  commitSha?: string;
-  projectRules?: string;
-}
 
 interface StatusResponse {
   loggedIn: boolean;
@@ -79,8 +66,6 @@ export class AugmentIPCClient extends EventEmitter {
       throw new Error("Server is already running");
     }
 
-    // Starting Augment server with Node IPC
-
     return pTimeout(
       pRetry(
         async () => {
@@ -108,27 +93,26 @@ export class AugmentIPCClient extends EventEmitter {
 
   private async _spawnServerProcess(): Promise<void> {
     return new Promise((resolve, reject) => {
-      // 使用 node-ipc 模式启动服务器
-      this.serverProcess = spawn("node", [this.serverPath, "--node-ipc"], {
+      this.serverProcess = spawn("node", [this.serverPath], {
         stdio: ["pipe", "pipe", "pipe", "ipc"],
-        env: process.env,
-      });
-
-      // 错误处理
-      this.serverProcess.on("error", (error) => {
-        console.error("❌ Failed to start server process:", error);
-        reject(new Error(`Server spawn failed: ${error.message}`));
-      });
-
-      this.serverProcess.on("exit", (code, signal) => {
-        // Server exited
-        this.emit("serverExit", { code, signal });
-        this._cleanup();
+        env: { ...process.env },
       });
 
       // IPC 消息监听
       this.serverProcess.on("message", (message: LSPMessage) => {
         this._handleMessage(message);
+      });
+
+      // 进程错误监听
+      this.serverProcess.on("error", (error) => {
+        reject(new Error(`Server process error: ${error.message}`));
+      });
+
+      // 进程退出监听
+      this.serverProcess.on("exit", (code, signal) => {
+        if (code !== 0 && code !== null) {
+          reject(new Error(`Server process exited with code ${code}`));
+        }
       });
 
       // 标准错误输出监听
@@ -147,7 +131,6 @@ export class AugmentIPCClient extends EventEmitter {
       // 等待进程启动
       setTimeout(() => {
         if (this.serverProcess && !this.serverProcess.killed) {
-          // Server process started successfully
           resolve();
         } else {
           reject(new Error("Server process failed to start"));
@@ -175,7 +158,6 @@ export class AugmentIPCClient extends EventEmitter {
 
     await this._sendRequest("initialize", initParams);
     this.isInitialized = true;
-    // Server initialized successfully
   }
 
   stopServer(): void {
@@ -184,30 +166,15 @@ export class AugmentIPCClient extends EventEmitter {
 
   private _cleanup(): void {
     if (this.serverProcess) {
-      if (!this.serverProcess.killed) {
-        this.serverProcess.kill("SIGTERM");
-
-        // 强制终止超时
-        setTimeout(() => {
-          if (this.serverProcess && !this.serverProcess.killed) {
-            this.serverProcess.kill("SIGKILL");
-          }
-        }, 5000);
-      }
+      this.serverProcess.kill();
       this.serverProcess = null;
     }
-
-    // 清理待处理的请求
-    for (const [, request] of this.pendingRequests) {
-      request.reject(new Error("Server connection closed"));
-    }
-    this.pendingRequests.clear();
-
     this.isInitialized = false;
+    this.pendingRequests.clear();
   }
 
   // ========================================================================
-  // IPC Communication
+  // Communication
   // ========================================================================
 
   private async _sendRequest(method: string, params?: any): Promise<any> {
@@ -321,7 +288,6 @@ export class AugmentIPCClient extends EventEmitter {
         message,
       });
 
-      // Message sent successfully
       return result;
     } catch (error) {
       console.error("❌ Failed to send message:", error);
@@ -341,83 +307,3 @@ export class AugmentIPCClient extends EventEmitter {
     return this.isRunning() && this.isInitialized;
   }
 }
-
-async function loadPromptTemplate(): Promise<string> {
-  const promptPath = path.join(__dirname, "prompt.md");
-  return fs.readFileSync(promptPath, "utf-8");
-}
-
-async function readDiffFile(diffPath: string): Promise<string> {
-  if (!fs.existsSync(diffPath)) {
-    throw new Error(`Diff file not found: ${diffPath}`);
-  }
-  return fs.readFileSync(diffPath, "utf-8");
-}
-
-function formatPrompt(
-  template: string,
-  options: ReviewOptions,
-  diffContent: string
-): string {
-  // 构建 GitHub 仓库链接信息
-  const githubInfo =
-    options.repoOwner && options.repoName && options.commitSha
-      ? `\n\n## GitHub 仓库信息\n- 仓库: ${options.repoOwner}/${options.repoName}\n- 提交: ${options.commitSha}\n- 基础链接: https://github.com/${options.repoOwner}/${options.repoName}/blob/${options.commitSha}/`
-      : "";
-
-  return (
-    template
-      .replace("{PR_TITLE}", options.prTitle || "No title provided")
-      .replace(
-        "{PR_DESCRIPTION}",
-        options.prDescription || "No description provided"
-      )
-      .replace("{DIFF_CONTENT}", diffContent || "No diff content available")
-      .replace("{PROJECT_RULES}", options.projectRules || "无项目规则文件") +
-    githubInfo
-  );
-}
-
-async function performCodeReview(options: ReviewOptions): Promise<string> {
-  const client = new AugmentIPCClient();
-
-  try {
-    await client.startServer(options.projectPath);
-
-    // 等待同步完成
-    for (let attempt = 0; attempt < 300; attempt++) {
-      const status = await client.getStatus();
-
-      if (status.syncPercentage === 100) {
-        break;
-      }
-
-      if (attempt === 299) {
-        throw new Error("Server synchronization timeout after 300 attempts");
-      }
-
-      // 等待1秒后重试
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-
-    const promptTemplate = await loadPromptTemplate();
-    const diffContent = options.diffPath
-      ? await readDiffFile(options.diffPath)
-      : "";
-    const reviewPrompt = formatPrompt(promptTemplate, options, diffContent);
-
-    const reviewResult = await client.sendMessage(
-      reviewPrompt,
-      options.projectPath
-    );
-
-    return reviewResult.text;
-  } catch (error) {
-    console.error("❌ Code review failed:", error);
-    throw error;
-  } finally {
-    client.stopServer();
-  }
-}
-
-export { performCodeReview, ReviewOptions };

@@ -1,18 +1,24 @@
+import { IRuleManager, ProjectRules } from "./types";
 /**
  * 规则管理器
  * 负责读取和管理项目规则文件
  */
-export declare class RuleManager {
+export declare class RuleManager implements IRuleManager {
     private projectPath;
     private rulesCache;
     private processedFiles;
     constructor(projectPath: string);
     /**
+     * 加载项目规则文件
+     * 实现 IRuleManager 接口
+     */
+    loadProjectRules(projectPath: string): Promise<ProjectRules>;
+    /**
      * 加载所有规则文件
      * 从 .augment/rules 开始，递归查找所有 .md 文件
      * 让 AI 自己分析规则内容和引用关系
      */
-    loadAllRules(): Promise<string>;
+    private loadAllRules;
     /**
      * 从指定目录递归加载规则文件
      */

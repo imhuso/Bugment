@@ -50,7 +50,7 @@ runs:
       shell: bash
       run: |
         cd ${{ github.action_path }}
-        npx tsx src/action.ts
+        npx tsx src/main.ts
       env:
         INPUT_AUGMENT_ACCESS_TOKEN: ${{ inputs.augment_access_token }}
         INPUT_AUGMENT_TENANT_URL: ${{ inputs.augment_tenant_url }}

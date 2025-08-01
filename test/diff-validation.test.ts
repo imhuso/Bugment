@@ -1,4 +1,4 @@
-import { BugmentAction } from '../src/action';
+import { BugmentAction } from '../src/bugment-action';
 
 // Test diff parsing and validation
 describe('Diff Validation', () => {
