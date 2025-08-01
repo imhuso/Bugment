@@ -49,11 +49,18 @@ export class AugmentIPCClient extends EventEmitter {
   private serverProcess: ChildProcess | null = null;
   private serverPath: string;
   private isInitialized = false;
-  private connectionTimeout = 60000;
-  private requestTimeout = 120000;
+  private connectionTimeout = 120000; // 增加到 2 分钟
+  private requestTimeout = 180000; // 增加到 3 分钟
 
-  constructor(serverPath: string = "./dist/server.js") {
+  constructor(serverPath?: string) {
     super();
+    // 在 GitHub Actions 环境中，使用正确的服务器路径
+    if (!serverPath) {
+      // 从当前文件位置找到 server.js
+      const currentDir = __dirname;
+      const projectRoot = path.resolve(currentDir, '../..');
+      serverPath = path.join(projectRoot, 'dist', 'server.js');
+    }
     this.serverPath = path.resolve(serverPath);
   }
 
@@ -73,12 +80,12 @@ export class AugmentIPCClient extends EventEmitter {
           await this._initializeServer(basePath);
         },
         {
-          retries: 3,
-          minTimeout: 1000,
-          maxTimeout: 5000,
+          retries: 5, // 增加重试次数
+          minTimeout: 2000, // 增加最小超时
+          maxTimeout: 10000, // 增加最大超时
           onFailedAttempt: (error) => {
             console.warn(
-              `⚠️ Attempt ${error.attemptNumber} failed: ${error.message}`
+              `⚠️ Attempt ${error.attemptNumber}/${5} failed: ${error.message}`
             );
             this._cleanup();
           },
@@ -93,24 +100,43 @@ export class AugmentIPCClient extends EventEmitter {
 
   private async _spawnServerProcess(): Promise<void> {
     return new Promise((resolve, reject) => {
+      console.log(`🚀 Starting Augment server from: ${this.serverPath}`);
+      
+      // 检查服务器文件是否存在
+      if (!require('fs').existsSync(this.serverPath)) {
+        reject(new Error(`Server file not found: ${this.serverPath}`));
+        return;
+      }
+
       this.serverProcess = spawn("node", [this.serverPath, "--node-ipc"], {
         stdio: ["pipe", "pipe", "pipe", "ipc"],
         env: { ...process.env },
       });
 
+      let processStarted = false;
+
       // IPC 消息监听
       this.serverProcess.on("message", (message: LSPMessage) => {
+        if (!processStarted) {
+          console.log("📨 First IPC message received, server is ready");
+          processStarted = true;
+          resolve();
+        }
         this._handleMessage(message);
       });
 
       // 进程错误监听
       this.serverProcess.on("error", (error) => {
+        console.error(`❌ Server process error: ${error.message}`);
         reject(new Error(`Server process error: ${error.message}`));
       });
 
       // 进程退出监听
-      this.serverProcess.on("exit", (code, _signal) => {
-        if (code !== 0 && code !== null) {
+      this.serverProcess.on("exit", (code, signal) => {
+        console.log(`🔚 Server process exited with code ${code}, signal ${signal}`);
+        this.emit("serverExit", { code, signal });
+        this._cleanup();
+        if (!processStarted && code !== 0) {
           reject(new Error(`Server process exited with code ${code}`));
         }
       });
@@ -119,27 +145,36 @@ export class AugmentIPCClient extends EventEmitter {
       this.serverProcess.stderr?.on("data", (data) => {
         const errorText = data.toString().trim();
         if (errorText) {
-          // Suppress normal stderr output unless it's an actual error
+          console.warn(`⚠️ Server stderr: ${errorText}`);
         }
       });
 
       // 标准输出监听（用于调试）
-      this.serverProcess.stdout?.on("data", () => {
-        // Suppress stdout output for cleaner logs
+      this.serverProcess.stdout?.on("data", (data) => {
+        const outputText = data.toString().trim();
+        if (outputText) {
+          console.log(`📋 Server stdout: ${outputText}`);
+        }
       });
 
-      // 等待进程启动
+      // 等待进程启动的后备方案
       setTimeout(() => {
-        if (this.serverProcess && !this.serverProcess.killed) {
-          resolve();
-        } else {
-          reject(new Error("Server process failed to start"));
+        if (!processStarted) {
+          if (this.serverProcess && !this.serverProcess.killed) {
+            console.log("⏰ Server process started but no IPC message received yet");
+            processStarted = true;
+            resolve();
+          } else {
+            reject(new Error("Server process failed to start within timeout"));
+          }
         }
-      }, 1000);
+      }, 3000); // 增加到 3 秒
     });
   }
 
   private async _initializeServer(basePath: string): Promise<void> {
+    console.log(`🚀 Initializing server with workspace: ${basePath}`);
+    
     const initParams: InitializeParams = {
       processId: process.pid,
       capabilities: {},
@@ -156,7 +191,9 @@ export class AugmentIPCClient extends EventEmitter {
       ],
     };
 
-    await this._sendRequest("initialize", initParams);
+    console.log("📝 Sending initialize request with params:", JSON.stringify(initParams, null, 2));
+    const result = await this._sendRequest("initialize", initParams);
+    console.log("✅ Server initialized successfully:", JSON.stringify(result, null, 2));
     this.isInitialized = true;
   }
 
@@ -166,11 +203,28 @@ export class AugmentIPCClient extends EventEmitter {
 
   private _cleanup(): void {
     if (this.serverProcess) {
-      this.serverProcess.kill();
+      if (!this.serverProcess.killed) {
+        console.log("🛑 Terminating server process");
+        this.serverProcess.kill("SIGTERM");
+
+        // 强制终止超时
+        setTimeout(() => {
+          if (this.serverProcess && !this.serverProcess.killed) {
+            console.log("💀 Force killing server process");
+            this.serverProcess.kill("SIGKILL");
+          }
+        }, 5000);
+      }
       this.serverProcess = null;
     }
-    this.isInitialized = false;
+    
+    // 清理待处理的请求
+    for (const [, request] of this.pendingRequests) {
+      request.reject(new Error("Server connection closed"));
+    }
     this.pendingRequests.clear();
+    
+    this.isInitialized = false;
   }
 
   // ========================================================================
@@ -257,8 +311,14 @@ export class AugmentIPCClient extends EventEmitter {
       throw new Error("Server is not initialized. Call startServer() first.");
     }
 
+    if (!this.serverProcess || this.serverProcess.killed) {
+      throw new Error("Server process is not running");
+    }
+
     try {
+      console.log("🔍 Requesting server status...");
       const result = await this._sendRequest("augment/status");
+      console.log("📊 Status response received:", JSON.stringify(result, null, 2));
 
       const enhancedStatus: StatusResponse = {
         loggedIn: result.loggedIn || false,
@@ -268,6 +328,11 @@ export class AugmentIPCClient extends EventEmitter {
       return enhancedStatus;
     } catch (error) {
       console.error("❌ Failed to get status:", error);
+      console.error("Server process status:", {
+        running: this.isRunning(),
+        initialized: this.isInitialized,
+        pid: this.serverProcess?.pid
+      });
       throw error;
     }
   }

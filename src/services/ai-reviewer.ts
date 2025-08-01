@@ -23,7 +23,7 @@ export class AIReviewer implements IAIReviewer {
 
       // 启动 Augment 客户端
       this.client = new AugmentIPCClient();
-      await this.client.startServer(context.codeChanges.prInfo.owner);
+      await this.client.startServer(context.workspaceDir);
 
       // 等待同步完成
       await this.waitForSync();
@@ -34,7 +34,7 @@ export class AIReviewer implements IAIReviewer {
       // 发送审查请求
       const result = await this.client.sendMessage(
         reviewPrompt,
-        context.codeChanges.prInfo.owner
+        context.workspaceDir
       );
 
       const reviewId = this.generateReviewId();
@@ -109,20 +109,40 @@ export class AIReviewer implements IAIReviewer {
 
     core.info("⏳ Waiting for Augment synchronization...");
 
-    for (let attempt = 0; attempt < 300; attempt++) {
-      const status = await this.client.getStatus();
+    // 增加最大重试次数并添加更详细的日志
+    for (let attempt = 0; attempt < 600; attempt++) { // 增加到 10 分钟
+      try {
+        const status = await this.client.getStatus();
+        
+        core.info(`🔄 Sync status: ${status.syncPercentage || 0}% (attempt ${attempt + 1}/600)`);
 
-      if (status.syncPercentage === 100) {
-        core.info("✅ Augment synchronization completed");
-        return;
+        if (status.syncPercentage === 100) {
+          core.info("✅ Augment synchronization completed");
+          return;
+        }
+
+        // 显示进度更新（每 30 秒显示一次）
+        if (attempt > 0 && attempt % 30 === 0) {
+          core.info(`🔄 Still syncing... ${status.syncPercentage || 0}% complete (${Math.floor(attempt / 60)} minutes elapsed)`);
+        }
+
+        if (attempt === 599) {
+          throw new Error(`Server synchronization timeout after 600 attempts (10 minutes). Last sync percentage: ${status.syncPercentage || 0}%`);
+        }
+
+        // 等待1秒后重试
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (error) {
+        core.warning(`⚠️ Sync status check failed (attempt ${attempt + 1}): ${error}`);
+        
+        // 如果是最后几次尝试，抛出错误
+        if (attempt >= 590) {
+          throw new Error(`Failed to get sync status after ${attempt + 1} attempts: ${error}`);
+        }
+        
+        // 等待1秒后重试
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
-
-      if (attempt === 299) {
-        throw new Error("Server synchronization timeout after 300 attempts");
-      }
-
-      // 等待1秒后重试
-      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
 
