@@ -66,7 +66,8 @@ export interface AIReviewResult {
 // ============================================================================
 
 export interface HistoricalReview {
-  id: number;
+  id: number;        // 数字 ID，用于日志显示
+  nodeId?: string;   // Node ID，用于 GraphQL API 调用
   body: string;
   state: string;
   submittedAt: string;

@@ -57,22 +57,42 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
    */
   private async getPreviousReviews(prInfo: PullRequestInfo): Promise<HistoricalReview[]> {
     try {
-      const reviews = await this.octokit.rest.pulls.listReviews({
+      // 使用 GraphQL API 获取 reviews，这样可以同时获取数字 ID 和 Node ID
+      const query = `
+        query($owner: String!, $repo: String!, $number: Int!) {
+          repository(owner: $owner, name: $repo) {
+            pullRequest(number: $number) {
+              reviews(first: 100) {
+                nodes {
+                  id
+                  databaseId
+                  body
+                  state
+                  submittedAt
+                }
+              }
+            }
+          }
+        }
+      `;
+
+      const result: any = await this.octokit.graphql(query, {
         owner: prInfo.owner,
         repo: prInfo.repo,
-        pull_number: prInfo.number,
-        per_page: 100
+        number: prInfo.number
       });
 
       const bugmentReviews: HistoricalReview[] = [];
+      const reviews = result.repository.pullRequest.reviews.nodes || [];
 
-      for (const review of reviews.data) {
+      for (const review of reviews) {
         if (this.isBugmentReview(review.body || "")) {
           bugmentReviews.push({
-            id: review.id,
+            id: review.databaseId, // 数字 ID，用于日志显示
+            nodeId: review.id,     // Node ID，用于 GraphQL API 调用
             body: review.body || "",
             state: review.state,
-            submittedAt: review.submitted_at || ""
+            submittedAt: review.submittedAt || ""
           });
         }
       }
@@ -94,14 +114,20 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
 
     for (const review of reviews) {
       try {
+        // 确保有 nodeId，如果没有则跳过
+        if (!review.nodeId) {
+          core.warning(`⚠️ Skipping review ${review.id}: missing nodeId`);
+          continue;
+        }
+
         // 根据 review 状态选择不同的处理方式
         if (review.state === "APPROVED" || review.state === "CHANGES_REQUESTED") {
           // 对于 APPROVED 或 CHANGES_REQUESTED 状态的 review，使用 dismiss
-          await this.dismissPullRequestReview(review.id, "Outdated review replaced by new Bugment analysis");
+          await this.dismissPullRequestReview(review.nodeId, "Outdated review replaced by new Bugment analysis");
           core.info(`✅ Dismissed review ${review.id} (${review.state})`);
         } else {
           // 对于 COMMENTED 状态的 review，使用 minimize
-          await this.minimizeReview(review.id);
+          await this.minimizeReview(review.nodeId);
           core.info(`✅ Minimized review ${review.id} (${review.state})`);
         }
         hiddenCount++;
@@ -145,7 +171,7 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
   /**
    * 使用 GraphQL API 关闭 PR review
    */
-  private async dismissPullRequestReview(reviewId: number, message: string): Promise<void> {
+  private async dismissPullRequestReview(nodeId: string, message: string): Promise<void> {
     const mutation = `
       mutation($reviewId: ID!, $message: String!) {
         dismissPullRequestReview(input: {pullRequestReviewId: $reviewId, message: $message}) {
@@ -158,7 +184,7 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
     `;
 
     await this.octokit.graphql(mutation, {
-      reviewId: reviewId.toString(),
+      reviewId: nodeId,
       message
     });
   }
@@ -166,7 +192,7 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
   /**
    * 使用 GraphQL API 隐藏 PR review
    */
-  private async minimizeReview(reviewId: number): Promise<void> {
+  private async minimizeReview(nodeId: string): Promise<void> {
     const mutation = `
       mutation($reviewId: ID!) {
         minimizeComment(input: {subjectId: $reviewId, classifier: OUTDATED}) {
@@ -178,7 +204,7 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
     `;
 
     await this.octokit.graphql(mutation, {
-      reviewId: reviewId.toString()
+      reviewId: nodeId
     });
   }
 
