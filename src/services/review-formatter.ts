@@ -123,6 +123,10 @@ export class ReviewFormatter implements IReviewFormatter {
       // 提取各个字段
       const severityMatch = content.match(/\*\*严重程度\*\*:\s*🔴\s*\*\*严重\*\*|🟡\s*\*\*中等\*\*|🟢\s*\*\*轻微\*\*/);
       const descriptionMatch = content.match(/\*\*描述\*\*:\s*(.*?)(?=\n\*\*|$)/s);
+      const actualImpactMatch = content.match(/\*\*实际影响\*\*:\s*(.*?)(?=\n\*\*|$)/s);
+      const businessImpactMatch = content.match(/\*\*业务影响\*\*:\s*(.*?)(?=\n\*\*|$)/s);
+      const reproductionMatch = content.match(/\*\*复现条件\*\*:\s*(.*?)(?=\n\*\*|$)/s);
+      const performanceImpactMatch = content.match(/\*\*性能影响\*\*:\s*(.*?)(?=\n\*\*|$)/s);
       const ruleReferenceMatch = content.match(/\*\*规则引用\*\*:\s*(.*?)(?=\n\*\*|$)/s);
       const locationMatch = content.match(/\*\*位置\*\*:\s*(.*?)(?=\n\*\*|$)/s);
       const suggestionMatch = content.match(/\*\*建议修改\*\*:\s*(.*?)(?=\n\*\*|$)/s);
@@ -147,6 +151,10 @@ export class ReviewFormatter implements IReviewFormatter {
         severity,
         title: title.trim(),
         description: descriptionMatch[1].trim(),
+        actualImpact: actualImpactMatch?.[1]?.trim(),
+        businessImpact: businessImpactMatch?.[1]?.trim(),
+        reproductionCondition: reproductionMatch?.[1]?.trim(),
+        performanceImpact: performanceImpactMatch?.[1]?.trim(),
         ruleReference: ruleReferenceMatch?.[1]?.trim(),
         location,
         filePath,
@@ -307,6 +315,30 @@ export class ReviewFormatter implements IReviewFormatter {
     sections.push(`**描述**: ${issue.description}`);
     sections.push("");
 
+    // 实际影响（如果有）
+    if (issue.actualImpact) {
+      sections.push(`**实际影响**: ${issue.actualImpact}`);
+      sections.push("");
+    }
+
+    // 业务影响（如果有）
+    if (issue.businessImpact) {
+      sections.push(`**业务影响**: ${issue.businessImpact}`);
+      sections.push("");
+    }
+
+    // 复现条件（如果有）
+    if (issue.reproductionCondition) {
+      sections.push(`**复现条件**: ${issue.reproductionCondition}`);
+      sections.push("");
+    }
+
+    // 性能影响（如果有）
+    if (issue.performanceImpact) {
+      sections.push(`**性能影响**: ${issue.performanceImpact}`);
+      sections.push("");
+    }
+
     // 规则引用（如果有）
     if (issue.ruleReference) {
       sections.push(`**规则引用**: ${issue.ruleReference}`);
@@ -316,6 +348,15 @@ export class ReviewFormatter implements IReviewFormatter {
     // 修改建议（如果有）
     if (issue.suggestion) {
       sections.push(`**建议修改**: ${issue.suggestion}`);
+      sections.push("");
+    }
+
+    // AI修复Prompt（如果有）
+    if (issue.fixPrompt) {
+      sections.push(`**AI修复Prompt**:`);
+      sections.push("```");
+      sections.push(issue.fixPrompt);
+      sections.push("```");
       sections.push("");
     }
 

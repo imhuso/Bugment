@@ -92,6 +92,10 @@ export interface ReviewIssue {
   severity: IssueSeverity;
   title: string;
   description: string;
+  actualImpact?: string;        // 实际影响
+  businessImpact?: string;      // 业务影响
+  reproductionCondition?: string; // 复现条件
+  performanceImpact?: string;   // 性能影响
   ruleReference?: string;
   location: string;
   filePath?: string;
