@@ -87,19 +87,19 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
   }
 
   /**
-   * 隐藏之前的审查评论
+   * 关闭之前的审查
    */
   private async hidePreviousReviews(prInfo: PullRequestInfo, reviews: HistoricalReview[]): Promise<number> {
     let hiddenCount = 0;
 
     for (const review of reviews) {
       try {
-        // 使用 GraphQL API 隐藏评论
-        await this.hideReviewComment(review.id);
+        // 使用 GraphQL API 关闭整个 review
+        await this.dismissPullRequestReview(review.id, "Outdated review replaced by new Bugment analysis");
         hiddenCount++;
-        core.info(`✅ Hidden review comment ${review.id}`);
+        core.info(`✅ Dismissed review ${review.id}`);
       } catch (error) {
-        core.warning(`Failed to hide review ${review.id}: ${error}`);
+        core.warning(`Failed to dismiss review ${review.id}: ${error}`);
       }
     }
 
@@ -136,21 +136,23 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
   }
 
   /**
-   * 使用 GraphQL API 隐藏审查评论
+   * 使用 GraphQL API 关闭 PR review
    */
-  private async hideReviewComment(reviewId: number): Promise<void> {
+  private async dismissPullRequestReview(reviewId: number, message: string): Promise<void> {
     const mutation = `
-      mutation($reviewId: ID!) {
-        minimizeComment(input: {subjectId: $reviewId, classifier: OUTDATED}) {
-          minimizedComment {
-            isMinimized
+      mutation($reviewId: ID!, $message: String!) {
+        dismissPullRequestReview(input: {pullRequestReviewId: $reviewId, message: $message}) {
+          pullRequestReview {
+            id
+            state
           }
         }
       }
     `;
 
     await this.octokit.graphql(mutation, {
-      reviewId: reviewId.toString()
+      reviewId: reviewId.toString(),
+      message
     });
   }
 

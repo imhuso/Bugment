@@ -229,7 +229,7 @@ export class ReviewFormatter implements IReviewFormatter {
       sections.push("### 📋 整体评价");
       sections.push("");
       result.summary.forEach((item, index) => {
-        sections.push(`${index + 1}️⃣ ${item}`);
+        sections.push(`${index + 1}. ${item}`);
       });
       sections.push("");
     }
