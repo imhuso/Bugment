@@ -94,12 +94,19 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
 
     for (const review of reviews) {
       try {
-        // 使用 GraphQL API 关闭整个 review
-        await this.dismissPullRequestReview(review.id, "Outdated review replaced by new Bugment analysis");
+        // 根据 review 状态选择不同的处理方式
+        if (review.state === "APPROVED" || review.state === "CHANGES_REQUESTED") {
+          // 对于 APPROVED 或 CHANGES_REQUESTED 状态的 review，使用 dismiss
+          await this.dismissPullRequestReview(review.id, "Outdated review replaced by new Bugment analysis");
+          core.info(`✅ Dismissed review ${review.id} (${review.state})`);
+        } else {
+          // 对于 COMMENTED 状态的 review，使用 minimize
+          await this.minimizeReview(review.id);
+          core.info(`✅ Minimized review ${review.id} (${review.state})`);
+        }
         hiddenCount++;
-        core.info(`✅ Dismissed review ${review.id}`);
       } catch (error) {
-        core.warning(`Failed to dismiss review ${review.id}: ${error}`);
+        core.warning(`Failed to hide review ${review.id}: ${error}`);
       }
     }
 
@@ -153,6 +160,25 @@ export class ReviewHistoryManager implements IReviewHistoryManager {
     await this.octokit.graphql(mutation, {
       reviewId: reviewId.toString(),
       message
+    });
+  }
+
+  /**
+   * 使用 GraphQL API 隐藏 PR review
+   */
+  private async minimizeReview(reviewId: number): Promise<void> {
+    const mutation = `
+      mutation($reviewId: ID!) {
+        minimizeComment(input: {subjectId: $reviewId, classifier: OUTDATED}) {
+          minimizedComment {
+            isMinimized
+          }
+        }
+      }
+    `;
+
+    await this.octokit.graphql(mutation, {
+      reviewId: reviewId.toString()
     });
   }
 
